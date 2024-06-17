@@ -1,7 +1,6 @@
 from service.FileService import FileService
 from service.EmbeddedService import EmbeddedService
 from PyPDF2.errors import PdfReadError
-from requests.exceptions import MissingSchema, HTTPError, ConnectionError
 
 
 class FileController:
@@ -12,6 +11,7 @@ class FileController:
     def upload_files(self, files):
         try:
             response_data, status_code = self.file_service.upload(files)
+            self.trigger_embedding_process()
             return response_data, status_code
         except ValueError as e:
             return str(e), 400
@@ -20,31 +20,32 @@ class FileController:
         except AttributeError as e:
             return str(e), 400
         except PdfReadError as e:
-            return "The file is not a PDF file", 400
+            return "File must be in .pdf format", 400
 
     def upload_urls(self, urls):
         try:
-            response_data, status_code = self.file_service.upload_urls(urls)
+            response_data, status_code = self.file_service.upload_url(urls)
             self.trigger_embedding_process()
             return response_data, status_code
-        except MissingSchema as e:
-            return 'Invalid URL, Please recheck your URL', 400
         except ValueError as e:
             return str(e), 400
         except FileNotFoundError as e:
             return str(e), 400
         except AttributeError as e:
             return str(e), 400
-        except ConnectionError as e:
-            return 'Could not connect with the URL', 503
-        except HTTPError as e:
-            return 'The URL provided is not found (404). Please check the URL and try again', 404
 
-    def delete_files(self, files_id):
+    def delete_by_id(self, files_id):
         try:
-            response_data, status_code = self.file_service.delete_by_ids(files_id)
+            response_data, status_code = self.file_service.delete_by_id(files_id)
             return response_data, status_code
         except ValueError as e:
+            return str(e), 400
+
+    def get_files(self):
+        try:
+            response_data = self.file_service.get_uploaded_files()
+            return response_data
+        except Exception as e:
             return str(e), 400
 
     def trigger_embedding_process(self):

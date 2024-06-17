@@ -104,7 +104,7 @@ class EmbeddedService:
                 else:
                     results = []
                     for half in [left, right]:
-                        half_subsection = half
+                        half_subsection = (half)
                         half_strings = EmbeddedService.split_strings_from_subsection(
                             half_subsection,
                             max_tokens=max_tokens,

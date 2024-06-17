@@ -12,6 +12,9 @@ if __name__ == '__main__':
     from routes.upload_bp import upload_bp
     app.register_blueprint(upload_bp)
 
+    from routes.file_bp import file_bp
+    app.register_blueprint(file_bp)
+
     from routes.delete_bp import delete_bp
     app.register_blueprint(delete_bp)
 

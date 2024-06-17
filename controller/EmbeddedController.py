@@ -7,8 +7,8 @@ class EmbeddedController:
 
     def trigger_embedding_process(self):
         try:
-            embedding_response, embedding_status = self.embedded_service.embedding_files()
-            return embedding_response, embedding_status
+            response_data, status_code = self.embedded_service.embedding_files()
+            return response_data, status_code
         except Exception as e:
             return str(e), 400
 

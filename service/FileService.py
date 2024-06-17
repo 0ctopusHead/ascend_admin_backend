@@ -7,8 +7,6 @@ from io import BytesIO
 import PyPDF2
 from app import mongo
 from flask import jsonify
-import magic
-
 db = mongo.db
 
 
@@ -25,25 +23,19 @@ class FileService:
         encoded_files = self.encode_pdf(pdf_file_paths)
 
         for file_name, encoded_data in encoded_files.items():
-            self.database.EncodedPDF.insert_one(encoded_data)
+            db.EncodedPDF.insert_one(encoded_data)
 
         for file_path in pdf_file_paths:
             os.remove(file_path)
-        return jsonify({'message': f'Upload files {pdf_file_paths} success'}), 200
+        return jsonify({'message': 'Upload files success'}), 200
 
-    def upload_urls(self, urls):
-        try:
-            for url in urls:
-                pdf_input = self.download_pdf_from_url(url)
-                file_name = os.path.basename(urlparse(url).path)
-                encoded_pdfs = self.encode_url(pdf_input, file_name)
-                for file_name, file_data in encoded_pdfs.items():
-                    self.database.EncodedPDF.insert_one(file_data)
-            return jsonify({'message': 'Upload from URL success'}), 200
-        except Exception as e:
-            raise e
+    def upload_url(self, urls):
+        encoded_pdfs = self.encode_url(urls)
+        for file_name, file_data in encoded_pdfs.items():
+            db.EncodedPDF.insert_one(file_data)
+        return jsonify({'message': 'Upload from URL success'}), 200
 
-    def delete_by_ids(self, files_id):
+    def delete_by_id(self, files_id):
         try:
             for file_id in files_id:
                 encoded_file = self.database.EncodedPDF.find_one({"_id": ObjectId(file_id)})
@@ -65,21 +57,22 @@ class FileService:
             pdf_file_paths = []
             if files:
                 for file in files:
-                    mime_type = magic.from_buffer(file.read(), mime=True)
-                    if mime_type == 'application/pdf':
-                        file.seek(0)
+                    if file and file.filename.endswith('.pdf'):
                         file_path = file.filename
                         file.save(file_path)
                         if self.validate_input_from_file(file_path):
                             pdf_file_paths.append(file_path)
                         else:
-                            raise AttributeError("The file must be in PDF/A format")
+                            raise AttributeError("The file must in PDF/A format")
                     else:
                         raise ValueError("Only PDF files are supported.")
             else:
                 raise FileNotFoundError
             return pdf_file_paths
         except Exception as e:
+            for file in files:
+                if file:
+                    os.remove(file.filename)
             raise e
 
     def encode_pdf(self, pdf_file_paths):
@@ -98,10 +91,12 @@ class FileService:
         except FileNotFoundError as e:
             raise e
 
-    def encode_url(self, pdf_input, file_name):
-        try:
-            if self.validate_input_from_bytes(pdf_input):
-                encode_string = base64.b64encode(pdf_input).decode('utf-8')
+    def encode_url(self, urls):
+        for url in urls:
+            pdf_data = self.download_pdf_from_url(url)
+            if self.validate_input_from_bytes(pdf_data):
+                encode_string = base64.b64encode(pdf_data).decode('utf-8')
+                file_name = os.path.basename(urlparse(url).path)
                 hash_key = ObjectId()
                 self.encoded_files[hash_key] = {
                     "file_name": file_name,
@@ -109,27 +104,19 @@ class FileService:
                     "hash_key": hash_key
                 }
             else:
-                raise AttributeError("The file must be in PDF/A format")
-            return self.encoded_files
-        except Exception as e:
-            raise e
+                raise AttributeError("The file must in PDF/A format")
+        return self.encoded_files
 
     @staticmethod
     def download_pdf_from_url(url):
         try:
             response = requests.get(url)
-            response.raise_for_status()
             if response.headers.get('content-type') == 'application/pdf':
                 return response.content
             else:
                 raise ValueError("The attached URL is not a PDF URL")
         except Exception as e:
             raise e
-
-    # @staticmethod
-    # async def fetch_data(session, url):
-    #     async with session.get(url) as response:
-    #         return await response.status_code()
 
     def validate_input_from_file(self, pdf_input):
         try:
@@ -156,4 +143,15 @@ class FileService:
             return False
         except Exception as e:
             print(f"Error occurred while validating PDF: {e}")
+            raise e
+
+    def get_uploaded_files(self):
+        try:
+            uploaded_files_cursor = self.database.EncodedPDF.find({}, {"file_name": 1, "_id": 1})
+            uploaded_files = []
+            for file in uploaded_files_cursor:
+                file["_id"] = str(file["_id"])
+                uploaded_files.append(file)
+            return uploaded_files
+        except Exception as e:
             raise e
