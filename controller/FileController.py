@@ -41,10 +41,10 @@ class FileController:
         except ValueError as e:
             return str(e), 400
 
-    def get_files(self):
+    def get_files(self, page, limit):
         try:
-            response_data = self.file_service.get_uploaded_files()
-            return response_data
+            uploaded_files, total_files = self.file_service.get_uploaded_files(page, limit)
+            return uploaded_files, total_files
         except Exception as e:
             return str(e), 400
 

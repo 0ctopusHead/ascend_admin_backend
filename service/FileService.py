@@ -145,13 +145,19 @@ class FileService:
             print(f"Error occurred while validating PDF: {e}")
             raise e
 
-    def get_uploaded_files(self):
+    def get_uploaded_files(self, page, limit):
         try:
+            start_index = (page - 1) * limit
+            end_index = start_index + limit
+            total_files = self.database.EncodedPDF.count_documents({})
             uploaded_files_cursor = self.database.EncodedPDF.find({}, {"file_name": 1, "_id": 1})
             uploaded_files = []
             for file in uploaded_files_cursor:
                 file["_id"] = str(file["_id"])
                 uploaded_files.append(file)
-            return uploaded_files
+
+            uploaded_files = uploaded_files[start_index:end_index]
+            return uploaded_files, total_files
         except Exception as e:
             raise e
+
