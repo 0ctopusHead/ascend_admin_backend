@@ -3,7 +3,7 @@ from flask_cors import CORS
 from flask_pymongo import PyMongo
 
 app = Flask(__name__)
-CORS(app, resources={r'/*': {'origins': '*'}})
+CORS(app, resources={r'/*': {'origins': '*'}}, expose_headers=['x-total-count'])
 app.config["MONGO_URI"] = "mongodb://localhost:27017/ascend-edu"
 mongo = PyMongo(app)
 db = mongo.db
