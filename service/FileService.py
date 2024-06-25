@@ -33,7 +33,7 @@ class FileService:
 
     def upload_url(self, urls):
         try:
-            temp_files = self.download_pdfs_to_temp_files(urls)
+            temp_files = self.save_urls_to_temp_files(urls)
             pdf_file_paths = [temp_file.name for temp_file in temp_files]
             encoded_pdfs = self.encode_pdf(pdf_file_paths)
 
@@ -46,26 +46,6 @@ class FileService:
             return jsonify({'message': 'Upload from URL success'}), 200
         except Exception as e:
             raise e
-
-    def download_pdfs_to_temp_files(self, urls):
-        temp_files = []
-        for url in urls:
-            pdf_data = self.download_pdf_from_url(url)
-            mime_type = magic.from_buffer(pdf_data, mime=True)
-            if mime_type == 'application/pdf':
-                file_name = os.path.basename(urlparse(url).path)
-                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", prefix=file_name)
-                temp_file.write(pdf_data)
-                temp_file.seek(0)
-                if self.validate_input_from_file(temp_file.name):
-                    temp_files.append(temp_file)
-                else:
-                    temp_file.close()
-                    os.remove(temp_file.name)
-                    raise AttributeError("The file must be in PDF/A format")
-            else:
-                raise ValueError("The URL does not point to a valid PDF file.")
-        return temp_files
 
     def delete_by_id(self, files_id):
         try:
@@ -93,18 +73,43 @@ class FileService:
                     if mime_type == 'application/pdf':
                         file.seek(0)
                         file_path = file.filename if hasattr(file, 'filename') else file.name
-                        with open(file_path, 'wb') as f:
+                        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", prefix=file_path)
+                        with open(temp_file.name, 'wb') as f:
                             f.write(file.read())
-                        if self.validate_input_from_file(file_path):
-                            pdf_file_paths.append(file_path)
+                        if self.validate_input_from_file(temp_file.name):
+                            pdf_file_paths.append(temp_file.name)
                         else:
-                            os.remove(file_path)
+                            temp_file.close()
+                            os.remove(temp_file.name)
                             raise AttributeError("The file must be in PDF/A format")
                     else:
                         raise ValueError("Only PDF files are supported.")
             else:
                 raise FileNotFoundError
             return pdf_file_paths
+        except Exception as e:
+            raise e
+
+    def save_urls_to_temp_files(self, urls):
+        try:
+            temp_files = []
+            for url in urls:
+                pdf_data = self.download_pdf_from_url(url)
+                mime_type = magic.from_buffer(pdf_data, mime=True)
+                if mime_type == 'application/pdf':
+                    file_name = os.path.basename(urlparse(url).path)
+                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", prefix=file_name)
+                    temp_file.write(pdf_data)
+                    temp_file.seek(0)
+                    if self.validate_input_from_file(temp_file.name):
+                        temp_files.append(temp_file)
+                    else:
+                        temp_file.close()
+                        os.remove(temp_file.name)
+                        raise AttributeError("The file must be in PDF/A format")
+                else:
+                    raise ValueError("The URL does not point to a valid PDF file.")
+            return temp_files
         except Exception as e:
             raise e
 
@@ -121,7 +126,7 @@ class FileService:
                         "hash_key": hash_key
                     }
             return self.encoded_files
-        except FileNotFoundError as e:
+        except Exception as e:
             raise e
 
     @staticmethod
