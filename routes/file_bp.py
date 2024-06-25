@@ -12,4 +12,5 @@ def get_files():
     uploaded_files, total_files = file_controller.get_files(page, limit)
     response = jsonify(uploaded_files)
     response.headers['x-total-count'] = total_files
+    print('Total Files:', total_files)
     return response
