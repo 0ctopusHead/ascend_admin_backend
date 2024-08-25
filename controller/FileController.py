@@ -30,7 +30,7 @@ class FileController:
         except ValueError as e:
             return str(e), 400
         except FileNotFoundError as e:
-            return str(e), 400
+            return 'Could not find the file/ No file attached', 400
         except AttributeError as e:
             return str(e), 400
 

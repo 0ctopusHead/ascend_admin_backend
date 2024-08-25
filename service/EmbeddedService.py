@@ -7,10 +7,13 @@ from flask import jsonify
 from io import BytesIO
 import PyPDF2
 from app import mongo
-
-
+from utils.OpenAIStorageUtils import OpenAIStorageUtils
+from dotenv import load_dotenv
+load_dotenv()
 GPT_MODEL = "gpt-3.5-turbo"
 EMBEDDING_MODEL = "text-embedding-3-small"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 client = OpenAI()
 db = mongo.db
 
@@ -18,6 +21,7 @@ db = mongo.db
 class EmbeddedService:
     def __init__(self):
         self.database = db
+        self.openai_storage_utils = OpenAIStorageUtils()
 
     def embedding_files(self):
         try:
@@ -25,19 +29,30 @@ class EmbeddedService:
             for file in encoded_files:
                 hash_key = file['hash_key']
                 file_name = file['file_name']
-                if self.database.EmbeddedPDF.find_one({'hash_key': hash_key}):
+                if OpenAIStorageUtils.check_file_exists(hash_key):
                     continue
                 encoded_string = file['encoded_string']
-                decoded_text = EmbeddedService.read_decoded_pdf(EmbeddedService.decode_pdf([encoded_string]))[0]
-                all_chunks = EmbeddedService.split_strings_from_subsection(decoded_text, max_tokens=2048)
+                decoded_text = self.read_decoded_pdf(self.decode_pdf([encoded_string]))[0]
+                all_chunks = self.split_strings_from_subsection(decoded_text, max_tokens=2048)
 
-                embedded_chunks = EmbeddedService.prepare_embedded_chunks(file_name, hash_key, all_chunks)
+                embedded_chunks = self.prepare_embedded_chunks(file_name, hash_key, all_chunks)
 
-                self.database.EmbeddedPDF.insert_many(embedded_chunks)
+                for chunk in embedded_chunks:
+                    self.save_embedded_chunk(chunk, file['file_name'])
 
             return jsonify({'message': 'Embedded files success'}), 200
+
         except Exception as e:
             raise e
+
+    def save_embedded_chunk(self, chunk, file_name):
+        data = {
+            'file_name': chunk['file_name'],
+            'text_chunk': chunk['text_chunk'],
+            'embedded_array': chunk['embedded_array'],
+            'hash_key': str(chunk['hash_key'])
+        }
+        self.openai_storage_utils.store_json_to_openai(file_name, data)
 
     @staticmethod
     def num_tokens(text: str, model: str = GPT_MODEL) -> int:
@@ -145,5 +160,7 @@ class EmbeddedService:
                      '_id': str(ObjectId())}
             embedded_chunks.append(chunk)
         return embedded_chunks
+
+
 
 

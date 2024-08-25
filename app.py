@@ -4,7 +4,7 @@ from flask_pymongo import PyMongo
 
 app = Flask(__name__)
 CORS(app, resources={r'/*': {'origins': '*'}}, expose_headers=['x-total-count'])
-app.config["MONGO_URI"] = "mongodb://localhost:27017/ascend-edu"
+app.config["MONGO_URI"] = "mongodb+srv://ceo_koop:6Y4E3dI980oGC15F@db-mongodb-nyc3-38677-61871e8a.mongo.ondigitalocean.com/ascend-edu?tls=true&authSource=admin&replicaSet=db-mongodb-nyc3-38677"
 mongo = PyMongo(app)
 db = mongo.db
 

@@ -8,7 +8,7 @@ from app import mongo
 from flask import jsonify
 import magic
 from bson import ObjectId
-
+from utils.OpenAIStorageUtils import OpenAIStorageUtils
 db = mongo.db
 
 
@@ -33,6 +33,8 @@ class FileService:
 
     def upload_url(self, urls):
         try:
+            if not urls:
+                raise FileNotFoundError
             temp_files = self.save_urls_to_temp_files(urls)
             pdf_file_paths = [temp_file.name for temp_file in temp_files]
             encoded_pdfs = self.encode_pdf(pdf_file_paths)
@@ -51,15 +53,17 @@ class FileService:
         try:
             for file_id in files_id:
                 encoded_file = self.database.EncodedPDF.find_one({"_id": ObjectId(file_id)})
-                if encoded_file:
-                    hash_key = encoded_file.get('hash_key')
-                    deleted_file = self.database.EncodedPDF.delete_one({"_id": ObjectId(file_id)})
-                    print(deleted_file.deleted_count)
-                    if hash_key:
-                        deleted_embedded_file = self.database.EmbeddedPDF.delete_many({"hash_key": hash_key})
-                        print(deleted_embedded_file.deleted_count)
-                else:
-                    raise ValueError(f'Could not find the {file_id} in the database')
+                if not encoded_file:
+                    raise ValueError(f'Could not find the file with ID {file_id} in the database')
+
+                hash_key = encoded_file.get('hash_key')
+                print(hash_key)
+                if hash_key is None:
+                    raise ValueError(f'No hash key found for file with ID {file_id}')
+
+                OpenAIStorageUtils.delete_files_from_openai( hash_key)
+                deleted_file = self.database.EncodedPDF.delete_one({"_id": ObjectId(file_id)})
+                print(f"Deleted {deleted_file.deleted_count} file(s) from the database with ID {file_id}")
             return jsonify({'message': 'Delete success'}), 200
         except Exception as e:
             raise e
@@ -73,7 +77,7 @@ class FileService:
                     if mime_type == 'application/pdf':
                         file.seek(0)
                         file_path = file.filename if hasattr(file, 'filename') else file.name
-                        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", prefix=file_path)
+                        temp_file = tempfile.NamedTemporaryFile(delete=False, prefix=file_path)
                         with open(temp_file.name, 'wb') as f:
                             f.write(file.read())
                         if self.validate_input_from_file(temp_file.name):
@@ -117,7 +121,7 @@ class FileService:
         try:
             for pdf_file_path in pdf_file_paths:
                 with open(pdf_file_path, 'rb') as pdf:
-                    hash_key = ObjectId()
+                    hash_key = str(ObjectId())
                     encode_string = base64.b64encode(pdf.read()).decode('utf-8')
                     file_name = os.path.basename(pdf_file_path)
                     self.encoded_files[hash_key] = {
@@ -169,3 +173,4 @@ class FileService:
             return uploaded_files, total_files
         except Exception as e:
             raise e
+
