@@ -18,4 +18,7 @@ if __name__ == '__main__':
     from routes.delete_bp import delete_bp
     app.register_blueprint(delete_bp)
 
+    from routes.authen_bp import authen_bp
+    app.register_blueprint(authen_bp)
+
     app.run(debug=True)
